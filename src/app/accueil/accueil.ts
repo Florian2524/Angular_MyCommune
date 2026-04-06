@@ -1,7 +1,8 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { Component } from '@angular/core';
+import { ChangeDetectorRef, Component } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import { CommuneService } from '../services/commune';
 
 @Component({
   selector: 'app-accueil',
@@ -19,27 +20,66 @@ export class Accueil {
   public listeCommunes: any[] = [];
   public communeAffichee: any = null;
 
-  constructor(private http: HttpClient) {
+  public messageErreur: string;
+  public nbCommunes: number;
+
+  constructor(
+  private communeService: CommuneService,
+  private cdr: ChangeDetectorRef
+) {
     this.monTitre = 'Ma Commune';
     this.monIntroduction = 'Informations sur les communes';
     this.maPhraseAccroche = 'Insérez le code du département';
+
+    this.messageErreur = '';
+    this.nbCommunes = 0;
   }
 
   public afficherChampSaisi(): void {
-    const codeDepartement = this.champSaisi.value;
+    const codeDepartement = this.champSaisi.value?.trim();
 
-    this.http
-      .get<any[]>(`https://geo.api.gouv.fr/departements/${codeDepartement}/communes`)
-      .subscribe((donnees) => {
-        this.listeCommunes = donnees;
-        this.communeSelectionnee.setValue('');
-        this.communeAffichee = null;
-        console.log(this.listeCommunes);
+    this.messageErreur = '';
+    this.listeCommunes = [];
+    this.nbCommunes = 0;
+    this.communeSelectionnee.setValue('');
+    this.communeAffichee = null;
+
+    if (!codeDepartement) {
+      this.messageErreur = 'Veuillez saisir un code de département.';
+      return;
+    }
+
+    this.communeService
+  .getCommunesByDepartement(codeDepartement)
+      .subscribe({
+        next: (donnees) => {
+          this.listeCommunes = donnees;
+          this.nbCommunes = donnees.length;
+
+          if (this.nbCommunes === 0) {
+            this.messageErreur = 'Aucune commune trouvée pour ce département.';
+          }
+
+          this.cdr.detectChanges();
+        },
+        error: () => {
+          this.listeCommunes = [];
+          this.nbCommunes = 0;
+          this.messageErreur = 'Erreur lors de la récupération des communes.';
+          this.cdr.detectChanges();
+        }
       });
   }
 
   public validerCommune(): void {
     const nomCommune = this.communeSelectionnee.value;
+
+    this.messageErreur = '';
+
+    if (!nomCommune) {
+      this.messageErreur = 'Veuillez sélectionner une commune.';
+      return;
+    }
 
     const communeTrouvee = this.listeCommunes.find(
       (commune) => commune.nom === nomCommune
@@ -51,6 +91,11 @@ export class Accueil {
         codePostal: communeTrouvee.codesPostaux?.[0] || 'Non renseigné',
         population: communeTrouvee.population,
       };
+    } else {
+      this.communeAffichee = null;
+      this.messageErreur = 'Impossible de retrouver la commune sélectionnée.';
     }
+
+    this.cdr.detectChanges();
   }
 }
