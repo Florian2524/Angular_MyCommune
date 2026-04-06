@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
 import { ChangeDetectorRef, Component } from '@angular/core';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { CommuneService } from '../services/commune';
 
@@ -22,17 +22,24 @@ export class Accueil {
 
   public messageErreur: string;
   public nbCommunes: number;
+  public chargement: boolean;
+  public codeDepartementActuel: string;
+  public mapUrl: SafeResourceUrl | null;
 
   constructor(
-  private communeService: CommuneService,
-  private cdr: ChangeDetectorRef
-) {
+    private communeService: CommuneService,
+    private cdr: ChangeDetectorRef,
+    private sanitizer: DomSanitizer
+  ) {
     this.monTitre = 'Ma Commune';
     this.monIntroduction = 'Informations sur les communes';
     this.maPhraseAccroche = 'Insérez le code du département';
 
     this.messageErreur = '';
     this.nbCommunes = 0;
+    this.chargement = false;
+    this.codeDepartementActuel = '';
+    this.mapUrl = null;
   }
 
   public afficherChampSaisi(): void {
@@ -43,18 +50,23 @@ export class Accueil {
     this.nbCommunes = 0;
     this.communeSelectionnee.setValue('');
     this.communeAffichee = null;
+    this.mapUrl = null;
 
     if (!codeDepartement) {
       this.messageErreur = 'Veuillez saisir un code de département.';
       return;
     }
 
+    this.chargement = true;
+    this.codeDepartementActuel = codeDepartement;
+
     this.communeService
-  .getCommunesByDepartement(codeDepartement)
+      .getCommunesByDepartement(codeDepartement)
       .subscribe({
         next: (donnees) => {
           this.listeCommunes = donnees;
           this.nbCommunes = donnees.length;
+          this.chargement = false;
 
           if (this.nbCommunes === 0) {
             this.messageErreur = 'Aucune commune trouvée pour ce département.';
@@ -66,6 +78,7 @@ export class Accueil {
           this.listeCommunes = [];
           this.nbCommunes = 0;
           this.messageErreur = 'Erreur lors de la récupération des communes.';
+          this.chargement = false;
           this.cdr.detectChanges();
         }
       });
@@ -87,12 +100,23 @@ export class Accueil {
 
     if (communeTrouvee) {
       this.communeAffichee = {
-        nom: communeTrouvee.nom,
-        codePostal: communeTrouvee.codesPostaux?.[0] || 'Non renseigné',
-        population: communeTrouvee.population,
-      };
+  nom: communeTrouvee.nom,
+  codePostal: communeTrouvee.codesPostaux?.[0] || 'Non renseigné',
+  population: communeTrouvee.population,
+  latitude: communeTrouvee.centre?.coordinates?.[1] || null,
+  longitude: communeTrouvee.centre?.coordinates?.[0] || null,
+};
+
+      const rechercheCarte = encodeURIComponent(
+        `${communeTrouvee.nom} ${this.codeDepartementActuel} France`
+      );
+
+      this.mapUrl = this.sanitizer.bypassSecurityTrustResourceUrl(
+        `https://www.google.com/maps?q=${rechercheCarte}&output=embed`
+      );
     } else {
       this.communeAffichee = null;
+      this.mapUrl = null;
       this.messageErreur = 'Impossible de retrouver la commune sélectionnée.';
     }
 
