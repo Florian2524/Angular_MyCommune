@@ -35,6 +35,46 @@
         </button>
       </div>
     </div>
+
+    <div class="mt-4" *ngIf="listeCommunes.length > 0">
+      <label for="communes" class="form-label">Choisissez une commune</label>
+
+      <select
+        id="communes"
+        class="form-select"
+        [formControl]="communeSelectionnee"
+      >
+        <option value="">-- Sélectionnez une commune --</option>
+        <option
+          *ngFor="let commune of listeCommunes"
+          [value]="commune.nom"
+        >
+          {{ commune.nom }}
+        </option>
+      </select>
+
+      <div class="d-grid mt-3">
+        <button
+          type="button"
+          class="btn btn-success"
+          (click)="validerCommune()"
+        >
+          Valider
+        </button>
+      </div>
+    </div>
+
+    <div class="card mt-4" *ngIf="communeAffichee">
+      <div class="card-body">
+        <h3 class="card-title">{{ communeAffichee.nom }}</h3>
+        <p class="card-text">
+          <strong>Code postal :</strong> {{ communeAffichee.codePostal }}
+        </p>
+        <p class="card-text">
+          <strong>Population :</strong> {{ communeAffichee.population }}
+        </p>
+      </div>
+    </div>
   </div>
 </main>
 
